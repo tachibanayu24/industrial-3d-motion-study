@@ -101,7 +101,7 @@ function expandedFactory(){const result=factory(),p=result.root,u=result.updates
   for(const x of [-23,35])for(const z of [-21,-13]){
     box(p,x,.8,z,4,1.6,2.3,m.white);box(p,x,1.7,z,4,.15,2.3,m.steel);
   }
-  return {...result,view:{position:[31.3704,23.0968,25.644],target:[6,1,-3]}};
+  return {...result,view:{position:[27.4,16.59,14.21],target:[9.5,1,-6]}};
 }
 export function createWorlds(scene){
   const worlds=[workingPort(),expandedFactory(),neighborhood()];
@@ -348,7 +348,7 @@ function workingPort(){
     updates.push(t=>trolley.position.z=20+4*Math.sin(t*Math.PI/3));
   }
   truck(land,75,-91,Math.PI/2);truck(land,12,-69,Math.PI/2);person(land,updates,{x:79,z:-89,pose:'clipboard',coat:m.orange});
-  return {root,updates,view:{position:[85.68,73.28,108.64],target:[-12,2,-26]}};
+  return {root,updates,view:{position:[61.53,68.4,69.08],target:[-6,2,-24]}};
 }
 
 function neighborhood(){
@@ -472,5 +472,5 @@ function neighborhood(){
     beam(root,[x,0,z],[x,6,z],.07,m.dark);beam(root,[x,6,z],[x+1.6,6,z],.055,m.dark);box(root,x+1.5,5.95,z,.8,.12,.35,m.white);
   }
   // Translate camera and target equally along screen-right; keep the viewing angle.
-  return {root,updates,view:{position:[53.4,53,57.5],target:[5.4,2,-2.5]}};
+  return {root,updates,view:{position:[46.01,39.53,48.26],target:[5.4,2,-2.5]}};
 }
