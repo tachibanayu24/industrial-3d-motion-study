@@ -1,5 +1,6 @@
 import * as T from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './style.css';
 
 const $ = s => document.querySelector(s);
@@ -10,6 +11,15 @@ catch { $('#error').hidden=false; $('#error').textContent='このブラウザで
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
 const scene=new T.Scene();scene.background=new T.Color('#33423d');scene.fog=new T.Fog('#33423d',45,110);
 const camera=new T.PerspectiveCamera(34,1,.1,160);
+const filmCamera=camera.clone();
+const orbit=new OrbitControls(camera,canvas);
+orbit.target.set(0,2.5,0);
+orbit.enableDamping=true;
+orbit.minDistance=5;
+orbit.maxDistance=75;
+orbit.maxPolarAngle=Math.PI/2-.025;
+function resetView(){camera.position.set(30*Math.sin(.65),21,30*Math.cos(.65));orbit.target.set(0,2.5,0);orbit.update();}
+resetView();
 scene.add(new T.HemisphereLight('#e1f2eb','#394038',2.2));
 const sun=new T.DirectionalLight('#fff1d3',4);sun.position.set(-14,24,15);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-24,right:24,top:20,bottom:-20,near:1,far:80});sun.shadow.bias=-.0004;scene.add(sun);
 const rim=new T.DirectionalLight('#a4d4d2',2);rim.position.set(12,10,-16);scene.add(rim);
@@ -49,13 +59,14 @@ const jib=new T.Group();jib.position.y=8.8;crane.add(jib);for(const z of [-.25,.
 for(let i=0;i<5;i++)box(construction,-5, .2+i*.16,4,3,.13,.65,m.steel);for(let i=0;i<3;i++)pallet(construction,i*1.5,4);rail(construction,-1,2,8.5,1);
 const ground=new T.Mesh(new T.PlaneGeometry(200,200),mat('#34453d'));ground.rotation.x=-Math.PI/2;ground.position.y=-.76;ground.receiveShadow=true;scene.add(ground);
 
-let time=0,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,mode='auto',recording=false,last=performance.now();
+let time=0,playing=!matchMedia('(prefers-reduced-motion: reduce)').matches,mode='0',recording=false,last=performance.now();
+$('#mode').value=mode;
 $('#play').textContent=playing?'一時停止':'再生';
-const names=['製造','物流','建設'];
-function draw(t){const cycle=((t%24)+24)%24;const idx=mode==='auto'?Math.floor(cycle/8):Number(mode);worlds.forEach((g,i)=>g.visible=i===idx);updates.forEach(fn=>fn(cycle));const phase=mode==='auto'?(cycle%8)/8:cycle/24;const angle=.65+(phase-.5)*.16;camera.position.set(30*Math.sin(angle),21,30*Math.cos(angle));camera.lookAt(0,2.5,0);$('#industry').textContent=names[idx];renderer.render(scene,camera);}
+function draw(t){const cycle=((t%24)+24)%24;const idx=mode==='auto'?Math.floor(cycle/8):Number(mode);worlds.forEach((g,i)=>g.visible=i===idx);updates.forEach(fn=>fn(cycle));const cinematic=recording||$('#stage').classList.contains('lp');orbit.enabled=!cinematic;if(cinematic){const phase=mode==='auto'?(cycle%8)/8:cycle/24;const angle=.65+(phase-.5)*.16;filmCamera.aspect=camera.aspect;filmCamera.fov=camera.fov;filmCamera.updateProjectionMatrix();filmCamera.position.set(30*Math.sin(angle),21,30*Math.cos(angle));filmCamera.lookAt(0,2.5,0);}else{orbit.update();}renderer.render(scene,cinematic?filmCamera:camera);}
 function resize(){const r=$('#stage').getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.fov=camera.aspect<.85?53:34;camera.updateProjectionMatrix();draw(time);}window.addEventListener('resize',resize);resize();
 function tick(now){if(playing&&!recording&&!document.hidden)time+=Math.min((now-last)/1000,.1);last=now;if(!recording)draw(time);requestAnimationFrame(tick);}requestAnimationFrame(tick);
 $('#play').onclick=()=>{playing=!playing;$('#play').textContent=playing?'一時停止':'再生';};$('#overlay').onclick=()=>{const on=$('#stage').classList.toggle('lp');$('#overlay').setAttribute('aria-pressed',String(on));};$('#mode').onchange=e=>{mode=e.target.value;time=0;draw(time);};
+$('#reset').onclick=resetView;
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 $('#poster').onclick=()=>{draw(time);canvas.toBlob(b=>{if(b)download(b,'industrial-poster.png');});};
 $('#record').onclick=async()=>{if(!window.MediaRecorder||!canvas.captureStream){$('#status').textContent='このブラウザは動画書き出し非対応です。Chromeでお試しください。';return;}recording=true;const oldMode=mode,oldTime=time;mode='auto';const controls=[...document.querySelectorAll('button,select')];controls.forEach(b=>b.disabled=true);const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/mp4'].find(x=>MediaRecorder.isTypeSupported(x));let stream;try{renderer.setPixelRatio(1);renderer.setSize(1920,1080,false);camera.aspect=16/9;camera.fov=34;camera.updateProjectionMatrix();draw(0);stream=canvas.captureStream(30);const recorder=new MediaRecorder(stream,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:10000000});const chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};const done=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=reject;});recorder.start();const start=performance.now();await new Promise(resolve=>{function frame(now){const elapsed=(now-start)/1000;draw(Math.min(elapsed,23.999));$('#status').textContent=`書き出し中 ${Math.min(24,Math.floor(elapsed))} / 24秒 — このタブを開いたままにしてください`;if(elapsed<24)requestAnimationFrame(frame);else resolve();}requestAnimationFrame(frame);});recorder.stop();await done;download(new Blob(chunks,{type:recorder.mimeType}),`industrial-3d-motion.${recorder.mimeType.includes('mp4')?'mp4':'webm'}`);$('#status').textContent='1920 × 1080 の動画を保存しました';}catch(e){$('#status').textContent=`書き出せませんでした: ${e.message}`;}finally{stream?.getTracks().forEach(t=>t.stop());recording=false;mode=oldMode;time=oldTime;renderer.setPixelRatio(Math.min(devicePixelRatio,2));resize();controls.forEach(b=>b.disabled=false);}};
