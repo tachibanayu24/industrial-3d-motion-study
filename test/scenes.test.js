@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-import { createWorlds } from '../src/worlds.js';
+import { createWorlds, createShots, SHOT_SECONDS } from '../src/worlds.js';
 
-const worlds=createWorlds(new T.Scene());
+const worlds=createWorlds(new T.Scene()),shots=createShots(),DRIFT=.18;
 const bounds=o=>{o.updateWorldMatrix(true,true);return new T.Box3().setFromObject(o);};
 test('port mainland extends well inland and beyond the active berths',()=>{
   const land=worlds[0].root.getObjectByName('mainland');
@@ -50,16 +50,17 @@ test('three vehicles move in left-hand lanes without entering sidewalks',()=>{
   }
 });
 test('film framing has ground behind every corner throughout camera travel',()=>{
-  for(const w of worlds){
-    const ground=w.root.getObjectByName('frame-ground');assert.ok(ground);
+  for(const shot of shots)for(const orientation of ['landscape','portrait']){
+    const w=worlds[shot.world],view=shot[orientation],ground=w.root.getObjectByName('frame-ground');assert.ok(ground);
     const area=bounds(ground);
     for(const phase of [0,.5,1]){
-      const c=new T.PerspectiveCamera(37,16/9,.1,1600);
-      c.position.fromArray(w.view.position).applyAxisAngle(new T.Vector3(0,1,0),(phase-.5)*.08);c.lookAt(...w.view.target);c.updateMatrixWorld();
+      const c=new T.PerspectiveCamera(37,orientation==='landscape'?16/9:9/16,.1,1600);
+      const p=new T.Vector3().fromArray(view.position).sub(new T.Vector3().fromArray(view.target)).applyAxisAngle(new T.Vector3(0,1,0),(phase-.5)*DRIFT).add(new T.Vector3().fromArray(view.target));
+      c.position.copy(p);c.lookAt(...view.target);c.updateMatrixWorld();
       for(const x of [-1,1])for(const y of [-1,1]){
         const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2(x,y),c);
         const hit=ray.ray.intersectPlane(new T.Plane(new T.Vector3(0,1,0),-area.max.y),new T.Vector3());
-        assert.ok(hit && hit.x>=area.min.x&&hit.x<=area.max.x&&hit.z>=area.min.z&&hit.z<=area.max.z);
+        assert.ok(hit && hit.x>=area.min.x&&hit.x<=area.max.x&&hit.z>=area.min.z&&hit.z<=area.max.z,`${shot.name} ${orientation} corner ${x},${y} at phase ${phase} sees past the ground`);
       }
     }
   }
@@ -72,4 +73,22 @@ test('hospital sign stands above the roof and residential context is houses',()=
   const w=worlds[2],sign=w.root.getObjectByName('hospital-sign'),roof=w.root.getObjectByName('hospital-roof');
   assert.ok(sign && roof);assert.ok(bounds(sign).min.y>bounds(roof).max.y);
   assert.ok(w.root.getObjectByName('house-3'));
+});
+test('gantry crane lifts a container off the ship stack and sets it on the quay',()=>{
+  const w=worlds[0],crane=w.root.getObjectByName('gantry-0');assert.ok(crane);
+  const tick=t=>w.updates.forEach(fn=>fn(t));
+  const carried=crane.getObjectByName('carried'),waiting=crane.getObjectByName('waiting'),placed=crane.getObjectByName('placed');
+  tick(.5);assert.ok(waiting.visible&&!carried.visible&&!placed.visible);
+  tick(2.5);assert.ok(carried.visible&&!waiting.visible);
+  const lifted=bounds(carried);assert.ok(lifted.min.y>bounds(waiting).min.y+1,'carried container must clear the tier it was lifted from');
+  tick(4.5);assert.ok(placed.visible&&!carried.visible);
+  const quay=bounds(placed);assert.ok(Math.abs(quay.min.y-1.1)<.05,`placed container rests on the quay, got ${quay.min.y}`);
+  tick(3.9);const lowering=bounds(carried);assert.ok(Math.abs(lowering.min.y-quay.min.y)<.5,'container is lowered onto the quay before release');
+  tick(6);assert.ok(waiting.visible&&!placed.visible,'cycle resets with the loop');
+});
+test('quay truck drives the +x lane of the quay road during the port shot',()=>{
+  const w=worlds[0],truck=w.root.getObjectByName('quay-truck');assert.ok(truck);
+  w.updates.forEach(fn=>fn(0));const a=truck.position.clone();w.updates.forEach(fn=>fn(SHOT_SECONDS));const b=truck.position.clone();
+  assert.ok(b.x-a.x>30,'truck crosses the frame during the shot');
+  assert.ok(a.z>-84.5&&a.z<-78&&b.z===a.z,'truck stays in the near lane of the quay road');
 });

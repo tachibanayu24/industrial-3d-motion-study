@@ -41,7 +41,7 @@ function forklift(p,updates,x,z,animate=true){
   }
   box(g,0,2.57,0,1.35,.1,1.6,m.dark);person(g,updates,{y:.55,pose:'sit',hat:m.yellow});
   const load=group(carriage,0,.3,1.6);load.name='fork-load';pallet(load,0,0,2);
-  if(animate)updates.push(t=>g.position.x=x+Math.sin(t*Math.PI/9)*1.6);return g;
+  if(animate)updates.push(t=>g.position.x=x+Math.sin(t*Math.PI/3)*1.6);return g;
 }
 function tree(p,x,z,size=1){cylinder(p,x,1*size,z,.13,2*size,m.wood);ball(p,x,2.5*size,z,1.1*size,1.5*size,1.05*size,m.grass);}
 function surface(p,w=36,d=26,mat=m.floor){box(p,0,-.24,0,w,.45,d,mat,.12);}
@@ -87,7 +87,7 @@ function expandedFactory(){const result=factory(),p=result.root,u=result.updates
   const waiting=group(shipping,23,0,-.4);pallet(waiting,0,0,2);
   const delivered=group(shipping,23,.12,8.8);delivered.name='delivered-pallet';pallet(delivered,0,0,2);
   u.push(t=>{const s=((t%6)+6)%6;const travel=s<.6?0:s<2.8?(s-.6)/2.2:s<3.4?1:s<5.6?1-(s-3.4)/2.2:0;lift.position.z=-2+9.2*travel;lift.getObjectByName('fork-carriage').position.y=-.18*travel;load.visible=s>=.35&&s<3.2;waiting.visible=s<.35||s>5.8;delivered.visible=s>=3.2&&s<5.8;});
-  person(shipping,u,{x:27,z:5,pose:'clipboard',coat:m.blue});for(const z of [6,9])pallet(shipping,27,z,3);
+  person(shipping,u,{x:27,z:5,pose:'clipboard',coat:m.blue}).name='inspector';for(const z of [6,9])pallet(shipping,29.5,z,3);
   // Indoor transfer: a pallet staging bay and storage rack replace the truck.
   box(shipping,23,.035,8.8,3.4,.07,2.8,m.dark);
   for(const x of [21.3,24.7])box(shipping,x,.08,8.8,.08,.02,3,m.yellow);
@@ -101,17 +101,26 @@ function expandedFactory(){const result=factory(),p=result.root,u=result.updates
   for(const x of [-23,35])for(const z of [-21,-13]){
     box(p,x,.8,z,4,1.6,2.3,m.white);box(p,x,1.7,z,4,.15,2.3,m.steel);
   }
-  return {...result,view:{position:[27.4,16.59,14.21],target:[9.5,1,-6]}};
+  return result;
 }
 export function createWorlds(scene){
   const worlds=[workingPort(),expandedFactory(),neighborhood()];
   surroundPort(worlds[0]);surroundFactory(worlds[1]);surroundNeighborhood(worlds[2]);
-  for(const w of worlds){
-    const {position:p,target:t}=w.view;
-    p[1]=t[1]+Math.hypot(p[0]-t[0],p[2]-t[2])*Math.tan(Math.PI/6);
-    scene.add(w.root);
-  }
+  for(const w of worlds)scene.add(w.root);
   return worlds;
+}
+
+// Camera setups for the LP loop. Wide shots look down at 30 degrees; the medium shot at 20.
+// `landscape` frames the 16:9 hero video, `portrait` the separate 9:16 phone cut.
+export const SHOT_SECONDS=6;
+const setup=(target,azimuth,radius,elevation=30)=>({target,position:[target[0]+Math.sin(azimuth)*radius,target[1]+radius*Math.tan(elevation*Math.PI/180),target[2]+Math.cos(azimuth)*radius]});
+export function createShots(){
+  return [
+    {world:0,name:'海・港',landscape:setup([-6,2,-24],.628,115),portrait:setup([4,2,-20],.628,175)},
+    {world:1,name:'屋内・食品加工',landscape:setup([9.5,1,-6],.725,27),portrait:setup([12,1,-3],.725,48)},
+    {world:2,name:'野外・物流',landscape:setup([5.4,2,-2.5],.675,65),portrait:setup([5.4,2,-2.5],.675,85)},
+    {world:1,name:'人物・中景',landscape:setup([26.6,1.15,2],.5,7.5,20),portrait:setup([26.6,1.4,2],.5,8.5,20)},
+  ];
 }
 
 // Peripheral sets are deliberately low-detail. Shared geometry/materials and
@@ -341,14 +350,30 @@ function workingPort(){
   for(const xx of [-4,4]){cylinder(ship,xx,5.5,43,.6,.8,m.dark);beam(ship,[xx,5.5,43],[xx,5.5,49],.08);}
   for(const side of [-1,1]){for(let z=-53;z<43;z+=3)beam(ship,[side*8.6,5.1,z],[side*8.6,6.2,z],.035);beam(ship,[side*8.6,6.2,-53],[side*8.6,6.2,43],.035);}
   updates.push(t=>ship.position.y=.045*Math.sin(t*Math.PI/3));
-  for(const x of [-5,42]){
-    const crane=group(land,x,0,-33);for(const dx of [-4,4])for(const zz of [-5,5]){beam(crane,[dx,0,zz],[dx,28,zz],.28,m.steel);box(crane,dx,.4,zz,1.3,.8,3,m.dark);}
+  // Each crane lifts one container from the top tier, carries it inland and sets it on the quay every 6 seconds (land-local y: quay 0, tier top 14.4).
+  for(const [k,x] of [-4,40.8].entries()){
+    const crane=group(land,x,0,-33);crane.name=`gantry-${k}`;for(const dx of [-4,4])for(const zz of [-5,5]){beam(crane,[dx,0,zz],[dx,28,zz],.28,m.steel);box(crane,dx,.4,zz,1.3,.8,3,m.dark);}
     for(const dx of [-3,3]){beam(crane,[dx,28,-15],[dx,28,43],.22,m.steel);beam(crane,[dx,31,-15],[dx,31,43],.18,m.steel);for(let z=-15;z<42;z+=3)beam(crane,[dx,28,z],[dx,31,z+3],.1,m.steel);}
-    const trolley=group(crane,0,28,20);box(trolley,0,0,0,6,.7,3,m.yellow);for(const dx of [-2,2])beam(trolley,[dx,0,0],[dx,-11,0],.035,m.dark);box(trolley,0,-11,0,5,.4,2.5,m.yellow);
-    updates.push(t=>trolley.position.z=20+4*Math.sin(t*Math.PI/3));
+    const trolley=group(crane,0,28,21);box(trolley,0,0,0,6,.7,3,m.yellow);
+    const cables=[-2,2].map(dx=>cylinder(trolley,dx,0,0,.035,1,m.dark));
+    const spreader=group(trolley,0,-8,0);spreader.name='spreader';box(spreader,0,0,0,5,.4,2.5,m.yellow);
+    const carried=box(spreader,0,-1.45,0,5.4,2.5,2.6,m.orange);carried.name='carried';
+    const waiting=box(crane,0,15.65,21,5.4,2.5,2.6,m.orange);waiting.name='waiting';
+    const placed=box(crane,0,1.25,2,5.4,2.5,2.6,m.orange);placed.name='placed';
+    const ease=v=>v<.5?2*v*v:1-2*(1-v)*(1-v),seg=(s,a,b)=>ease(Math.max(0,Math.min(1,(s-a)/(b-a))));
+    updates.push(t=>{
+      const s=(((t+k*3)%6)+6)%6;
+      const hang=s<1?8+2.9*seg(s,0,.8):s<1.7?10.9-2.9*seg(s,1,1.7):s<3?8:s<4.2?8+17.3*seg(s,3,4):s<5?25.3-17.3*seg(s,4.2,5):8;
+      trolley.position.z=s<1.7?21:s<3?21-19*seg(s,1.7,3):s<5?2:2+19*seg(s,5,6);
+      spreader.position.y=-hang;for(const c of cables){c.scale.y=hang;c.position.y=-hang/2;}
+      carried.visible=s>=.9&&s<4.1;waiting.visible=s<.9;placed.visible=s>=4.1;
+    });
   }
+  // A delivery truck runs the quay road (left-hand traffic, +x lane) once per loop.
+  const runner=truck(land,-40,-81,Math.PI/2);runner.name='quay-truck';runner.position.y=1.3;
+  updates.push(t=>{runner.position.x=-40+8*(((t%24)+24)%24);});
   truck(land,75,-91,Math.PI/2);truck(land,12,-69,Math.PI/2);person(land,updates,{x:79,z:-89,pose:'clipboard',coat:m.orange});
-  return {root,updates,view:{position:[61.53,68.4,69.08],target:[-6,2,-24]}};
+  return {root,updates};
 }
 
 function neighborhood(){
@@ -402,7 +427,7 @@ function neighborhood(){
   for(const side of [-1,1])for(let y=2.5;y<13;y+=3.2)for(let z=-11;z<0;z+=3.2)box(h,side*13.52,y,z,.04,1.65,1.9,m.glass);
   box(h,0,13.55,-6,27.8,.3,14.8,m.white).name='hospital-roof';for(const x of [-10,10])box(h,x,14.3,-9,3,1.2,3,m.steel);
   const sign=group(h,0,17,-3);sign.name='hospital-sign';for(const x of [-1.3,1.3])beam(sign,[x,-3.2,0],[x,1.5,0],.1,m.steel);
-  box(sign,0,0,0,4.4,4.4,.45,m.white);box(sign,0,0,.24,3.2,.9,.08,m.red);box(sign,0,0,.25,.9,3.2,.08,m.red);box(sign,0,0,-.24,3.2,.9,.08,m.red);box(sign,0,0,-.25,.9,3.2,.08,m.red);
+  box(sign,0,0,0,4.4,4.4,.45,m.white);box(sign,0,0,.24,3.2,.9,.08,m.green);box(sign,0,0,.25,.9,3.2,.08,m.green);box(sign,0,0,-.24,3.2,.9,.08,m.green);box(sign,0,0,-.25,.9,3.2,.08,m.green);
   // Solid, two-storey front wing; no cutaway rooms or transparent roof.
   box(h,0,3.4,7,28,6.8,12,m.white);
   box(h,0,6.95,7,29,.3,13,m.wall);
@@ -450,7 +475,7 @@ function neighborhood(){
   // All public-road traffic runs horizontally, in opposing left-hand lanes.
   for(let i=0;i<3;i++){
     const east=i!==1,v=truck(root,0,east?1.3:6.7,east?Math.PI/2:-Math.PI/2,true);v.name=`traffic-${i}`;if(i===2)v.scale.setScalar(.75);
-    updates.push(t=>{const travel=((t/18*132+i*43)%132);v.position.x=east?-66+travel:66-travel;});
+    updates.push(t=>{const travel=((t/24*132+i*43)%132);v.position.x=east?-66+travel:66-travel;});
   }
   for(const [x,z] of [[-52,-37],[-51,-5.5],[18,-40],[50,-38],[51,13]])tree(root,x,z,1.5);
   // Inexpensive edges of a larger neighborhood: side street, small workshops,
@@ -472,5 +497,5 @@ function neighborhood(){
     beam(root,[x,0,z],[x,6,z],.07,m.dark);beam(root,[x,6,z],[x+1.6,6,z],.055,m.dark);box(root,x+1.5,5.95,z,.8,.12,.35,m.white);
   }
   // Translate camera and target equally along screen-right; keep the viewing angle.
-  return {root,updates,view:{position:[46.01,39.53,48.26],target:[5.4,2,-2.5]}};
+  return {root,updates};
 }
