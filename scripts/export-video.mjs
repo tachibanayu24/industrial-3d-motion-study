@@ -1,6 +1,7 @@
 // Deterministic video export. Headless Chrome renders every frame of the loop at a fixed
 // timestep through the page's `?export` hook; ffmpeg encodes the PNG stream to MP4 and WebM.
-// Encoding targets a hero background video: H.264 crf 23 capped at 6 Mbps, VP9 crf 36. Adjust the crf values for size vs. quality.
+// Encoding targets a lightweight hero background video: 720p, H.264 crf 26 capped at 3 / 2 Mbps, VP9 crf 36.
+// Raise the target sizes or lower the crf values for more quality at the cost of file size.
 // Usage: npm run export [-- 16x9|9x16]
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -8,7 +9,7 @@ import { createServer } from 'vite';
 import puppeteer from 'puppeteer-core';
 
 const FPS=30,OUT='export',POSTER_TIME=1;
-const targets=[{name:'16x9',width:1920,height:1080},{name:'9x16',width:1080,height:1920}];
+const targets=[{name:'16x9',width:1280,height:720,maxrate:'3M'},{name:'9x16',width:720,height:1280,maxrate:'2M'}];
 const wanted=process.argv.slice(2),selected=targets.filter(t=>!wanted.length||wanted.includes(t.name));
 if(!selected.length){console.error(`unknown target ${wanted.join(' ')}; use 16x9 or 9x16`);process.exit(1);}
 mkdirSync(OUT,{recursive:true});
@@ -31,7 +32,7 @@ try{
     const base=`${OUT}/industrial-motion-${target.name}`,started=Date.now();
     writeFileSync(`${base}.png`,await grab(POSTER_TIME,target.width,target.height));
     const ffmpeg=spawn('ffmpeg',['-y','-loglevel','error','-f','image2pipe','-framerate',String(FPS),'-i','pipe:0',
-      '-c:v','libx264','-preset','slow','-crf','23','-maxrate','6M','-bufsize','12M','-pix_fmt','yuv420p','-movflags','+faststart',`${base}.mp4`,
+      '-c:v','libx264','-preset','slow','-crf','26','-maxrate',target.maxrate,'-bufsize',`${parseInt(target.maxrate)*2}M`,'-pix_fmt','yuv420p','-movflags','+faststart',`${base}.mp4`,
       '-c:v','libvpx-vp9','-crf','36','-b:v','0','-row-mt','1','-deadline','good','-cpu-used','2','-pix_fmt','yuv420p',`${base}.webm`],
       {stdio:['pipe','inherit','inherit']});
     const finished=new Promise((resolve,reject)=>{ffmpeg.on('close',code=>code===0?resolve():reject(new Error(`ffmpeg exited with ${code}`)));ffmpeg.on('error',reject);});

@@ -25,7 +25,7 @@
 
 ## Export
 
-本番用の動画は `npm run export` で書き出します。headless Chrome（インストール済みの Google Chrome を使用）がループを固定ステップで1フレームずつ描画し、ffmpeg が H.264 の MP4 と VP9 の WebM に変換します。コマ落ちや動きの飛びはありません。`export/` に横 1920×1080 と縦 1080×1920 の各 MP4・WebM と、1秒地点のポスター PNG を出力します。`npm run export -- 16x9` のように向きを指定できます。ffmpeg が必要です（`brew install ffmpeg`）。
+本番用の動画は `npm run export` で書き出します。headless Chrome（インストール済みの Google Chrome を使用）がループを固定ステップで1フレームずつ描画し、ffmpeg が H.264 の MP4 と VP9 の WebM に変換します。コマ落ちや動きの飛びはありません。`export/` に横 1280×720（上限 3Mbps）と縦 720×1280（上限 2Mbps）の各 MP4・WebM と、1秒地点のポスター PNG を出力します。LP の背景動画として軽さを優先した設定で、サイズや画質はスクリプト先頭の target と crf で調整できます。`npm run export -- 16x9` のように向きを指定できます。ffmpeg が必要です（`brew install ffmpeg`）。
 
 ブラウザの「静止画保存」は現在の視点のPNG、「動画を書き出す」は 1920×1080 のリアルタイム録画で、端末負荷によりフレーム落ちするためレビュー用です。文字・操作UIは動画に含みません。
 
