@@ -41,16 +41,17 @@ function setCoverProjection(viewCamera,frameAspect,aspect){
   else if(aspect>frameAspect){const height=fw/aspect;viewCamera.setViewOffset(fw,fh,0,(fh-height)/2,fw,height);}
   viewCamera.updateProjectionMatrix();
 }
-function placeFilmCamera(shot,t,aspect){
-  const v=aspect<1?shot.portrait:shot.landscape,u=((t%SHOT)+SHOT)%SHOT;
-  // In the loop each shot drifts symmetrically around its framed azimuth; fixed scenes keep turning slowly.
-  const angle=azimuthOf(v)+orbitOffset+(mode==='auto'?(u/SHOT-.5)*DRIFT:t*DRIFT/SHOT),r=radiusOf(v);
+function placeFilmCamera(shot,local,aspect){
+  const v=aspect<1?shot.portrait:shot.landscape;
+  // In the loop each shot drifts symmetrically around its framed azimuth. `local` is the shot's own clock and
+  // runs past 0 / SHOT during a crossfade, so neither side of a cut snaps back in angle. Fixed scenes keep turning.
+  const angle=azimuthOf(v)+orbitOffset+(mode==='auto'?(local/SHOT-.5)*DRIFT:local*DRIFT/SHOT),r=radiusOf(v);
   filmCamera.position.set(v.target[0]+Math.sin(angle)*r,v.position[1],v.target[2]+Math.cos(angle)*r);filmCamera.lookAt(...v.target);
 }
-function renderShot(index,t,viewCamera,aspect){
+function renderShot(index,t,viewCamera,aspect,local=t){
   const shot=shots[index];worlds.forEach((w,i)=>{w.root.visible=i===shot.world;});
   worlds[shot.world].updates.forEach(fn=>fn(t));scene.background.set(backgrounds[shot.world]);
-  if(viewCamera===filmCamera)placeFilmCamera(shot,t,aspect);
+  if(viewCamera===filmCamera)placeFilmCamera(shot,local,aspect);
   renderer.render(scene,viewCamera);
 }
 function draw(t,aspect=viewportAspect){
@@ -59,13 +60,13 @@ function draw(t,aspect=viewportAspect){
   const cinematic=recording||$('#stage').classList.contains('lp');orbit.enabled=!cinematic;
   if(!cinematic){orbit.update();renderShot(idx,cycle,camera,aspect);return;}
   setCoverProjection(filmCamera,aspect<1?9/16:16/9,aspect);
-  const u=cycle-idx*SHOT,n=shots.length;let fade=null;
-  if(auto&&u>SHOT-FADE/2)fade={from:idx,to:(idx+1)%n,k:(u-(SHOT-FADE/2))/FADE};
-  else if(auto&&u<FADE/2)fade={from:(idx+n-1)%n,to:idx,k:.5+u/FADE};
-  if(!fade){renderShot(idx,cycle,filmCamera,aspect);return;}
+  const u=auto?cycle-idx*SHOT:t,n=shots.length;let fade=null;
+  if(auto&&u>SHOT-FADE/2)fade={from:idx,fromLocal:u,to:(idx+1)%n,toLocal:u-SHOT,k:(u-(SHOT-FADE/2))/FADE};
+  else if(auto&&u<FADE/2)fade={from:(idx+n-1)%n,fromLocal:u+SHOT,to:idx,toLocal:u,k:.5+u/FADE};
+  if(!fade){renderShot(idx,cycle,filmCamera,aspect,u);return;}
   const size=renderer.getDrawingBufferSize(new T.Vector2());if(fadeTarget.width!==size.x||fadeTarget.height!==size.y)fadeTarget.setSize(size.x,size.y);
-  renderer.setRenderTarget(fadeTarget);renderShot(fade.from,cycle,filmCamera,aspect);renderer.setRenderTarget(null);
-  renderShot(fade.to,cycle,filmCamera,aspect);
+  renderer.setRenderTarget(fadeTarget);renderShot(fade.from,cycle,filmCamera,aspect,fade.fromLocal);renderer.setRenderTarget(null);
+  renderShot(fade.to,cycle,filmCamera,aspect,fade.toLocal);
   fadeQuad.material.opacity=1-fade.k;renderer.autoClear=false;renderer.render(fadeScene,fadeCamera);renderer.autoClear=true;
 }
 function resize(){if(recording)return;const r=$('#stage').getBoundingClientRect();renderer.setSize(r.width,r.height,false);viewportAspect=r.width/r.height;setCoverProjection(camera,viewportAspect<1?9/16:16/9,viewportAspect);draw(time);}
