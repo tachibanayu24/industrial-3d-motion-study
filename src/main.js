@@ -4,7 +4,7 @@ import { createWorlds, createShots, SHOT_SECONDS as SHOT } from './worlds.js';
 import './style.css';
 
 const $=s=>document.querySelector(s),canvas=$('#scene');
-const FADE=.5,DRIFT=.18; // seconds of crossfade at each cut; radians of camera drift per shot
+const FADE=.5,DRIFT=.12; // seconds of crossfade at each cut; radians of camera drift per shot
 let renderer;
 try{renderer=new T.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});}
 catch(e){$('#error').hidden=false;$('#error').textContent='WebGL対応のブラウザで開いてください。';throw e;}

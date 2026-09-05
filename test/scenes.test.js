@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as T from 'three';
 import { createWorlds, createShots, SHOT_SECONDS } from '../src/worlds.js';
 
-const worlds=createWorlds(new T.Scene()),shots=createShots(),DRIFT=.18;
+const worlds=createWorlds(new T.Scene()),shots=createShots(),DRIFT=.12;
 const bounds=o=>{o.updateWorldMatrix(true,true);return new T.Box3().setFromObject(o);};
 test('port mainland extends well inland and beyond the active berths',()=>{
   const land=worlds[0].root.getObjectByName('mainland');
@@ -78,17 +78,29 @@ test('gantry crane lifts a container off the ship stack and sets it on the quay'
   const w=worlds[0],crane=w.root.getObjectByName('gantry-0');assert.ok(crane);
   const tick=t=>w.updates.forEach(fn=>fn(t));
   const carried=crane.getObjectByName('carried'),waiting=crane.getObjectByName('waiting'),placed=crane.getObjectByName('placed');
-  tick(.5);assert.ok(waiting.visible&&!carried.visible&&!placed.visible);
-  tick(2.5);assert.ok(carried.visible&&!waiting.visible);
+  tick(1);assert.ok(waiting.visible&&!carried.visible&&!placed.visible);
+  tick(7);assert.ok(carried.visible&&!waiting.visible);
   const lifted=bounds(carried);assert.ok(lifted.min.y>bounds(waiting).min.y+1,'carried container must clear the tier it was lifted from');
-  tick(4.5);assert.ok(placed.visible&&!carried.visible);
+  tick(14);assert.ok(placed.visible&&!carried.visible);
   const quay=bounds(placed);assert.ok(Math.abs(quay.min.y-1.1)<.05,`placed container rests on the quay, got ${quay.min.y}`);
-  tick(3.9);const lowering=bounds(carried);assert.ok(Math.abs(lowering.min.y-quay.min.y)<.5,'container is lowered onto the quay before release');
-  tick(6);assert.ok(waiting.visible&&!placed.visible,'cycle resets with the loop');
+  tick(12.9);const lowering=bounds(carried);assert.ok(Math.abs(lowering.min.y-quay.min.y)<.5,'container is lowered onto the quay before release');
+  tick(18);assert.ok(waiting.visible&&!placed.visible,'cycle resets with the loop');
 });
 test('quay truck drives the +x lane of the quay road during the port shot',()=>{
   const w=worlds[0],truck=w.root.getObjectByName('quay-truck');assert.ok(truck);
   w.updates.forEach(fn=>fn(0));const a=truck.position.clone();w.updates.forEach(fn=>fn(SHOT_SECONDS));const b=truck.position.clone();
   assert.ok(b.x-a.x>30,'truck crosses the frame during the shot');
   assert.ok(a.z>-84.5&&a.z<-78&&b.z===a.z,'truck stays in the near lane of the quay road');
+});
+test('processing-line trays enter and leave inside the end machines',()=>{
+  const w=worlds[1],machines=[];w.root.traverse(o=>{if(/^line-(inlet|outlet)-/.test(o.name))machines.push(bounds(o));});
+  assert.equal(machines.length,4);
+  const trays=[];w.root.traverse(o=>{if(o.isGroup&&o.children.length===4&&o.children[0].geometry?.parameters?.width===.68)trays.push(o);});
+  assert.ok(trays.length>=12,'trays not found');
+  for(let t=0;t<36;t+=.25){w.updates.forEach(fn=>fn(t));for(const tray of trays){const b=bounds(tray);if(Math.abs(tray.position.x)<11.8)continue;
+    assert.ok(machines.some(mb=>mb.min.x<=b.min.x&&mb.max.x>=b.max.x&&mb.min.z<=b.min.z&&mb.max.z>=b.max.z&&mb.max.y>=b.max.y),`tray at x=${tray.position.x.toFixed(2)} is exposed at t=${t}`);}}
+});
+test('neighborhood depot has no forklift',()=>{
+  let forks=0;worlds[2].root.traverse(o=>{if(o.isMesh&&o.geometry?.parameters?.width===1.2&&o.geometry?.parameters?.depth===1.7)forks++;});
+  assert.equal(forks,0);
 });

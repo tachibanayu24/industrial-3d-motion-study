@@ -54,6 +54,8 @@ function factory(){const root=new T.Group(),updates=[];surface(root,36,27);shed(
   floorGrid.name='full-floor-grid';root.add(floorGrid);
   for(const z of [-6,1]){box(root,0,.9,z,23,.22,1.5,m.dark);for(let x=-11;x<12;x+=.3){const r=cylinder(root,x,1.06,z,.1,1.4);r.rotation.x=Math.PI/2;}for(let x=-10;x<12;x+=2)for(const dz of [-.55,.55])box(root,x,.45,z+dz,.08,.9,.08,m.steel);
     for(const x of [-6,2,8]){box(root,x,1.9,z,2.6,1.55,2.2,m.steel,.09);box(root,x,2.75,z,2.3,.15,2,m.white);box(root,x,2.15,z+1.11,1.7,.8,.025,m.glass);box(root,x+1,1.9,z+1.17,.35,.5,.12,m.dark);box(root,x+1,2.02,z+1.24,.25,.2,.02,m.glass);for(let j=0;j<5;j++)box(root,x-.9+j*.22,1.38,z+1.12,.1,.2,.025,m.dark);cylinder(root,x,3.25,z,.28,.85,m.steel);beam(root,[x,3.7,z],[x,4.5,z],.14);}
+    // Enclosed inlet/outlet machines cover the belt ends where trays enter and leave the loop.
+    for(const [x,label] of [[-12.6,'inlet'],[12.6,'outlet']]){const mch=box(root,x,1.35,z,2.4,2.7,2.2,m.steel,.09);mch.name=`line-${label}-${z}`;box(root,x,2.78,z,2.2,.16,2,m.white);box(root,x+(x<0?1.21:-1.21),1.1,z,.02,.6,1.1,m.dark);box(root,x,2.05,z+1.11,1.2,.5,.025,m.glass);cylinder(root,x,3.15,z,.22,.6,m.steel);}
     const trays=[];for(let i=0;i<12;i++){const g=group(root);box(g,0,1.23,z,.68,.13,.95,m.white,.035);for(let j=0;j<3;j++)ball(g,0,1.34,z-.28+j*.28,.23,.07,.1,m.orange);trays.push(g);}updates.push(t=>trays.forEach((g,i)=>g.position.x=((i*2+t*2/3)%24)-12));
   }
   for(const x of [-13,-10]){cylinder(root,x,2.2,-10,1.1,3.7,m.steel);ball(root,x,4.05,-10,1.1,.35,1.1,m.steel);for(const z of [-10.6,-9.4])beam(root,[x,.2,z],[x,1,z],.08);beam(root,[x,3.8,-10],[x,4.4,-10],.12);beam(root,[x,4.4,-10],[x,4.4,1],.12);}
@@ -110,7 +112,7 @@ export function createWorlds(scene){
   return worlds;
 }
 
-// Camera setups for the LP loop. Wide shots look down at 30 degrees; the medium shot at 20.
+// Camera setups for the LP loop, looking down at 30 degrees.
 // `landscape` frames the 16:9 hero video, `portrait` the separate 9:16 phone cut.
 export const SHOT_SECONDS=6;
 const setup=(target,azimuth,radius,elevation=30)=>({target,position:[target[0]+Math.sin(azimuth)*radius,target[1]+radius*Math.tan(elevation*Math.PI/180),target[2]+Math.cos(azimuth)*radius]});
@@ -119,7 +121,6 @@ export function createShots(){
     {world:0,name:'海・港',landscape:setup([-6,2,-24],.628,115),portrait:setup([4,2,-20],.628,175)},
     {world:1,name:'屋内・食品加工',landscape:setup([9.5,1,-6],.725,27),portrait:setup([12,1,-3],.725,48)},
     {world:2,name:'野外・物流',landscape:setup([5.4,2,-2.5],.675,65),portrait:setup([5.4,2,-2.5],.675,85)},
-    {world:1,name:'人物・中景',landscape:setup([26.6,1.15,2],.5,7.5,20),portrait:setup([26.6,1.4,2],.5,8.5,20)},
   ];
 }
 
@@ -350,7 +351,7 @@ function workingPort(){
   for(const xx of [-4,4]){cylinder(ship,xx,5.5,43,.6,.8,m.dark);beam(ship,[xx,5.5,43],[xx,5.5,49],.08);}
   for(const side of [-1,1]){for(let z=-53;z<43;z+=3)beam(ship,[side*8.6,5.1,z],[side*8.6,6.2,z],.035);beam(ship,[side*8.6,6.2,-53],[side*8.6,6.2,43],.035);}
   updates.push(t=>ship.position.y=.045*Math.sin(t*Math.PI/3));
-  // Each crane lifts one container from the top tier, carries it inland and sets it on the quay every 6 seconds (land-local y: quay 0, tier top 14.4).
+  // Each crane lifts one container from the top tier, carries it inland and sets it on the quay once per 18-second loop (land-local y: quay 0, tier top 14.4).
   for(const [k,x] of [-4,40.8].entries()){
     const crane=group(land,x,0,-33);crane.name=`gantry-${k}`;for(const dx of [-4,4])for(const zz of [-5,5]){beam(crane,[dx,0,zz],[dx,28,zz],.28,m.steel);box(crane,dx,.4,zz,1.3,.8,3,m.dark);}
     for(const dx of [-3,3]){beam(crane,[dx,28,-15],[dx,28,43],.22,m.steel);beam(crane,[dx,31,-15],[dx,31,43],.18,m.steel);for(let z=-15;z<42;z+=3)beam(crane,[dx,28,z],[dx,31,z+3],.1,m.steel);}
@@ -362,16 +363,17 @@ function workingPort(){
     const placed=box(crane,0,1.25,2,5.4,2.5,2.6,m.orange);placed.name='placed';
     const ease=v=>v<.5?2*v*v:1-2*(1-v)*(1-v),seg=(s,a,b)=>ease(Math.max(0,Math.min(1,(s-a)/(b-a))));
     updates.push(t=>{
-      const s=(((t+k*3)%6)+6)%6;
-      const hang=s<1?8+2.9*seg(s,0,.8):s<1.7?10.9-2.9*seg(s,1,1.7):s<3?8:s<4.2?8+17.3*seg(s,3,4):s<5?25.3-17.3*seg(s,4.2,5):8;
-      trolley.position.z=s<1.7?21:s<3?21-19*seg(s,1.7,3):s<5?2:2+19*seg(s,5,6);
+      const s=(((t+k*9)%18)+18)%18;
+      // descend 0-2.5, grab, lift 3-5, traverse 5-9, lower 9-13, release, raise 13.5-16, return 16-18
+      const hang=s<3?8+2.9*seg(s,0,2.5):s<5?10.9-2.9*seg(s,3,5):s<9?8:s<13.5?8+17.3*seg(s,9,13):s<16?25.3-17.3*seg(s,13.5,16):8;
+      trolley.position.z=s<5?21:s<9?21-19*seg(s,5,9):s<16?2:2+19*seg(s,16,18);
       spreader.position.y=-hang;for(const c of cables){c.scale.y=hang;c.position.y=-hang/2;}
-      carried.visible=s>=.9&&s<4.1;waiting.visible=s<.9;placed.visible=s>=4.1;
+      carried.visible=s>=2.75&&s<13.25;waiting.visible=s<2.75;placed.visible=s>=13.25;
     });
   }
   // A delivery truck runs the quay road (left-hand traffic, +x lane) once per loop.
   const runner=truck(land,-40,-81,Math.PI/2);runner.name='quay-truck';runner.position.y=1.3;
-  updates.push(t=>{runner.position.x=-40+8*(((t%24)+24)%24);});
+  updates.push(t=>{runner.position.x=-40+8*(((t%18)+18)%18);});
   truck(land,75,-91,Math.PI/2);truck(land,12,-69,Math.PI/2);person(land,updates,{x:79,z:-89,pose:'clipboard',coat:m.orange});
   return {root,updates};
 }
@@ -420,7 +422,7 @@ function neighborhood(){
   box(depot,16,3.6,-12,8,7.2,8,m.white);
   box(depot,16,5,-7.88,6,1.5,.08,m.glass);box(depot,20.28,5,-12,.08,1.5,6,m.glass);
   for(let x=-14;x<=14;x+=9){box(depot,x,2.15,3.05,5,4.3,.12,m.dark);for(let y=.3;y<4.3;y+=.3)box(depot,x,y,3.15,4.8,.035,.025,m.steel);box(depot,x,.5,4.5,5,1,3,m.floor);truck(depot,x,8.5);}
-  forklift(depot,updates,17,9);for(const x of [-13,-5,3,11])pallet(depot,x,-5,3);person(depot,updates,{x:1,z:13,pose:'clipboard'});
+  for(const x of [-13,-5,3,11])pallet(depot,x,-5,3);person(depot,updates,{x:1,z:13,pose:'clipboard'});
   // Hospital exterior: ward block, enclosed outpatient podium and formal entrance.
   const h=group(root,33,.25,-23);surface(h,30,35);
   box(h,0,6.7,-6,27,13.4,14,m.white);for(let y=2.5;y<13;y+=3.2)for(let x=-11;x<12;x+=3.2){box(h,x,y,1.03,1.9,1.65,.055,m.glass);box(h,x,y+1,1.08,2.2,.15,.18,m.floor);}
@@ -475,7 +477,7 @@ function neighborhood(){
   // All public-road traffic runs horizontally, in opposing left-hand lanes.
   for(let i=0;i<3;i++){
     const east=i!==1,v=truck(root,0,east?1.3:6.7,east?Math.PI/2:-Math.PI/2,true);v.name=`traffic-${i}`;if(i===2)v.scale.setScalar(.75);
-    updates.push(t=>{const travel=((t/24*132+i*43)%132);v.position.x=east?-66+travel:66-travel;});
+    updates.push(t=>{const travel=((t/18*132+i*43)%132);v.position.x=east?-66+travel:66-travel;});
   }
   for(const [x,z] of [[-52,-37],[-51,-5.5],[18,-40],[50,-38],[51,13]])tree(root,x,z,1.5);
   // Inexpensive edges of a larger neighborhood: side street, small workshops,
