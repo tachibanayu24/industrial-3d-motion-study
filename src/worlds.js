@@ -120,7 +120,8 @@ export function createShots(){
   return [
     {world:0,name:'海・港',landscape:setup([-6,2,-24],.628,115),portrait:setup([4,2,-20],.628,175)},
     {world:1,name:'屋内・食品加工',landscape:setup([9.5,1,-6],.725,27),portrait:setup([12,1,-3],.725,48)},
-    {world:2,name:'野外・物流',landscape:setup([5.4,2,-2.5],.675,65),portrait:setup([5.4,2,-2.5],.675,85)},
+    // Portrait looks north so the construction site (near), the crossing traffic and the depot (far) share the narrow frame.
+    {world:2,name:'野外・物流',landscape:setup([5.4,2,-2.5],.675,65),portrait:setup([-20,2,0],.2,88)},
   ];
 }
 
@@ -307,6 +308,8 @@ function workingPort(){
   box(land,0,.12,-78,600,.24,13,m.road);
   const roadPaint=m.white.clone();roadPaint.polygonOffset=true;roadPaint.polygonOffsetFactor=-1;roadPaint.polygonOffsetUnits=-2;
   for(let x=-220;x<240;x+=8){const stripe=box(land,x,.275,-78,3,.02,.13,roadPaint);stripe.castShadow=false;}
+  // Solid edge lines make the two lanes legible from the high camera.
+  for(const z of [-84.3,-71.7]){const edge=box(land,0,.275,z,600,.02,.13,roadPaint);edge.castShadow=false;edge.name='quay-edge-line';}
   for(const x of [-10,22,54])for(const z of [-43,-58])for(let k=0;k<5;k++)for(let y=0;y<3;y++)container(land,x+k*2.75,y*2.6,z,[m.blue,m.green,m.orange][Math.abs(x+z)%3]);
   // Two large, distinct buildings establish the inland edge of the shot.
   for(const [x,z,w,d,h] of [[15,-112,108,52,17],[115,-108,68,44,22]]){
@@ -371,9 +374,10 @@ function workingPort(){
       carried.visible=s>=2.75&&s<13.25;waiting.visible=s<2.75;placed.visible=s>=13.25;
     });
   }
-  // A delivery truck runs the quay road (left-hand traffic, +x lane) once per loop.
-  const runner=truck(land,-40,-81,Math.PI/2);runner.name='quay-truck';runner.position.y=1.3;
-  updates.push(t=>{runner.position.x=-40+8*(((t%18)+18)%18);});
+  // A delivery truck runs the quay road westbound in the +z lane (left-hand traffic); the -z lane holds docked trucks.
+  // It exists only while the port is off screen at both ends (t 16.5 -> 7.5), so it never pops into view.
+  const runner=truck(land,72,-74.6,-Math.PI/2);runner.name='quay-truck';runner.position.y=1.3;
+  updates.push(t=>{const local=(((t+1.5)%18)+18)%18;runner.position.x=72-8*local;runner.visible=local<9;});
   truck(land,75,-91,Math.PI/2);truck(land,12,-69,Math.PI/2);person(land,updates,{x:79,z:-89,pose:'clipboard',coat:m.orange});
   return {root,updates};
 }

@@ -86,11 +86,17 @@ test('gantry crane lifts a container off the ship stack and sets it on the quay'
   tick(12.9);const lowering=bounds(carried);assert.ok(Math.abs(lowering.min.y-quay.min.y)<.5,'container is lowered onto the quay before release');
   tick(18);assert.ok(waiting.visible&&!placed.visible,'cycle resets with the loop');
 });
-test('quay truck drives the +x lane of the quay road during the port shot',()=>{
+test('quay truck runs the free +z lane westbound and never overlaps another vehicle',()=>{
   const w=worlds[0],truck=w.root.getObjectByName('quay-truck');assert.ok(truck);
-  w.updates.forEach(fn=>fn(0));const a=truck.position.clone();w.updates.forEach(fn=>fn(SHOT_SECONDS));const b=truck.position.clone();
-  assert.ok(b.x-a.x>30,'truck crosses the frame during the shot');
-  assert.ok(a.z>-84.5&&a.z<-78&&b.z===a.z,'truck stays in the near lane of the quay road');
+  const tick=t=>w.updates.forEach(fn=>fn(t));
+  tick(0);const a=truck.position.clone();tick(SHOT_SECONDS);const b=truck.position.clone();
+  assert.ok(truck.visible&&a.x-b.x>30,'truck crosses the frame westbound during the port shot');
+  assert.ok(a.z>-78&&a.z<-71.5&&b.z===a.z,'truck stays in the +z lane of the quay road');
+  const others=[];w.root.traverse(o=>{if(o.isMesh&&!truck.getObjectById(o.id))others.push(o);});
+  for(let t=-.5;t<=7.5;t+=.5){tick(t);if(!truck.visible)continue;const tb=bounds(truck);
+    for(const o of others){const ob=bounds(o),size=ob.getSize(new T.Vector3());if(size.x>40||ob.max.y<tb.min.y+.2)continue;
+      assert.ok(!tb.intersectsBox(ob),`quay truck clips ${o.parent?.name||'a mesh'} at x=${truck.position.x.toFixed(1)} (t=${t})`);}}
+  tick(12);assert.equal(truck.visible,false,'truck is parked off screen while other scenes play');
 });
 test('processing-line trays enter and leave inside the end machines',()=>{
   const w=worlds[1],machines=[];w.root.traverse(o=>{if(/^line-(inlet|outlet)-/.test(o.name))machines.push(bounds(o));});
