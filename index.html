@@ -1,1 +1,15 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Industrial Motion — 3D study</title></head><body><main id="stage"><canvas id="scene" aria-label="製造、物流、建設を巡る産業模型アニメーション"></canvas><div id="shade"></div><section id="copy"><div class="brand">Industrial Motion</div><p class="eyebrow">3D modeling & animation study</p><h1>つくる。<br>運ぶ。<br>築く。</h1><p class="description">産業の風景を、小さな模型に。<br>光と素材、動きの検証。</p><span class="cta">映像プレビュー</span></section><div id="error" role="alert" hidden></div></main><footer><div><strong>Industrial Motion</strong><span>3Dモデリング検証 / 産業模型</span></div><nav aria-label="プレビュー操作"><button id="play">一時停止</button><button id="overlay" aria-pressed="false">LPビュー（テスト）</button><label>シーン<select id="mode"><option value="auto">全体ループ</option><option value="0">製造</option><option value="1">物流</option><option value="2">建設</option></select></label><button id="reset">視点をリセット</button><button id="poster">静止画保存</button><button id="record">動画を書き出す</button></nav><p id="status" aria-live="polite">ドラッグ：回転 ／ ホイール：ズーム ／ 右ドラッグ：移動</p></footer><script type="module" src="/src/main.js"></script></body></html>
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Industrial Motion — 3D study</title></head>
+<body><main id="stage">
+<canvas id="scene" aria-label="海・食品加工工場・物流中心の野外を巡る3D模型"></canvas>
+<div id="shade"></div>
+<section id="copy"><div class="brand">ロゴ</div><p class="eyebrow">サブタイトル</p><h1>タイトル</h1><p class="description">本文テキスト<br>本文テキスト<br>本文テキスト</p><span class="cta">ボタン</span></section>
+<div id="error" role="alert" hidden></div></main>
+<footer><div><strong>Industrial Motion</strong><span>3Dモデリング検証 / 18秒ループ</span></div>
+<nav aria-label="プレビュー操作"><button id="play">一時停止</button><button id="overlay" aria-pressed="false">LPビュー（テスト）</button>
+<button id="fast-orbit" aria-pressed="false" title="プレビューの公転だけ20倍速。シーン切り替え・動画書き出しの速度は変わりません" hidden>回転20倍速</button>
+<label id="device-control" hidden>LP表示<select id="device"><option value="desktop">PC</option><option value="390x844">スマホ 390 × 844</option><option value="375x667">スマホ 375 × 667</option><option value="430x932">スマホ 430 × 932</option></select></label>
+<label>シーン<select id="mode"><option value="auto">全体ループ</option><option value="0">海・港</option><option value="1">屋内・食品加工</option><option value="2">野外・物流</option></select></label>
+<button id="reset">視点をリセット</button><button id="poster">静止画保存</button><button id="record">動画を書き出す</button></nav>
+<p id="status" aria-live="polite">ドラッグ：回転 ／ ホイール：ズーム ／ 右ドラッグ：移動</p></footer>
+<script type="module" src="/src/main.js"></script></body></html>
