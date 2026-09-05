@@ -376,7 +376,7 @@ function workingPort(){
   }
   // A delivery truck runs the quay road westbound in the +z lane (left-hand traffic); the -z lane holds docked trucks.
   // It exists only while the port is off screen at both ends (t 16.5 -> 7.5), so it never pops into view.
-  const runner=truck(land,72,-74.6,-Math.PI/2);runner.name='quay-truck';runner.position.y=1.3;
+  const runner=truck(land,72,-74.6,-Math.PI/2);runner.name='quay-truck';runner.position.y=.24;
   updates.push(t=>{const local=(((t+1.5)%18)+18)%18;runner.position.x=72-8*local;runner.visible=local<9;});
   truck(land,75,-91,Math.PI/2);truck(land,12,-69,Math.PI/2);person(land,updates,{x:79,z:-89,pose:'clipboard',coat:m.orange});
   return {root,updates};
@@ -391,9 +391,30 @@ function neighborhood(){
   for(let x=-53;x<55;x+=4)if(x<1||x>17)box(root,x,.08,4,2,.015,.13,m.white);
   for(let z=-42;z<44;z+=4)if(z<-4||z>12)box(root,9,.085,z,.13,.015,2,m.white);
   const curbs=group(root);curbs.name='curbs';
-  // Four separate block perimeters, with gaps for vehicle entrances.
-  for(const [z,spans] of [[-2,[[-54,-44],[-6,2.5],[16,25],[43,55]]],[10,[[-54,-42],[-36,2.5],[16,55]]]])for(const [a,b] of spans)box(curbs,(a+b)/2,.17,z,b-a,.3,.75,m.floor);
-  for(const x of [3,15])for(const [z,d] of [[-23.5,40],[27.5,33]])box(curbs,x,.17,z,.75,.3,d,m.floor);
+  // Four separate block perimeters, with gaps for vehicle entrances. Straight runs stop 3m short of the
+  // junction corners, where quarter-circle curbs (radius 3) join them without a break.
+  for(const [z,spans] of [[-2,[[-54,-44],[-6,0],[18,25],[43,55]]],[10,[[-54,-42],[-36,0],[18,55]]]])for(const [a,b] of spans)box(curbs,(a+b)/2,.17,z,b-a,.3,.75,m.floor);
+  for(const x of [3,15])for(const [z,d] of [[-24.25,38.5],[28.5,31]])box(curbs,x,.17,z,.75,.3,d,m.floor);
+  const curbArc=(cx,cz,from)=>{const r=3,w=.375,shape=new T.Shape();shape.absarc(0,0,r+w,from,from+Math.PI/2,false);shape.absarc(0,0,r-w,from+Math.PI/2,from,true);
+    const geo=new T.ExtrudeGeometry(shape,{depth:.3,bevelEnabled:false,curveSegments:14});geo.rotateX(Math.PI/2);geo.translate(cx,.32,cz);const o=mesh(curbs,geo,m.floor);o.name='curb-corner';return o;};
+  curbArc(0,-5,0);curbArc(18,-5,Math.PI/2);curbArc(0,13,-Math.PI/2);curbArc(18,13,Math.PI);
+  // Road surface fills the square between the rounded curb and the two road edges, so the verge is rounded too.
+  const cornerFill=(cx,cz,turn)=>{const shape=new T.Shape();shape.moveTo(2.6,0);shape.lineTo(3.5,0);shape.lineTo(3.5,3.5);shape.lineTo(0,3.5);shape.lineTo(0,2.6);shape.absarc(0,0,2.6,Math.PI/2,0,true);
+    const geo=new T.ExtrudeGeometry(shape,{depth:.08,bevelEnabled:false,curveSegments:14});geo.rotateX(Math.PI/2);geo.rotateY(turn);geo.translate(cx,.06,cz);const o=mesh(root,geo,m.road);o.name='junction-corner';o.castShadow=false;return o;};
+  cornerFill(0,-5,0);cornerFill(18,-5,-Math.PI/2);cornerFill(0,13,Math.PI/2);cornerFill(18,13,Math.PI);
+  // Traffic signals: Japanese horizontal three-lamp heads hung from far-side poles over each approach lane.
+  // The east-west road (where the traffic runs) has the green; the north-south road waits on red.
+  const lamp={green:new T.MeshStandardMaterial({color:'#2ea866',emissive:'#41f09a',emissiveIntensity:1.3,roughness:.4}),red:new T.MeshStandardMaterial({color:'#b83a30',emissive:'#ff5a48',emissiveIntensity:1.3,roughness:.4}),off:material('#2b3331',.1,.7)};
+  const signal=(px,pz,ax,az,face,travel,state)=>{
+    cylinder(root,px,2.75,pz,.11,5.5,m.steel);box(root,px,.15,pz,.6,.3,.6,m.floor);
+    beam(root,[px,5.25,pz],[ax,5.25,az],.06,m.steel);beam(root,[ax,5.25,az],[ax,4.85,az],.05,m.steel);
+    const head=group(root,ax,4.6,az);head.name=`signal-${travel}`;head.userData.state=state;head.rotation.y=Math.atan2(face[0],face[1]);
+    box(head,0,0,0,1.3,.45,.38,m.dark,.04);box(head,0,.3,.1,1.36,.06,.5,m.dark);
+    // Driver's left is local -x: green, yellow, red.
+    for(const [x,mat] of [[-.42,state==='green'?lamp.green:lamp.off],[0,lamp.off],[.42,state==='red'?lamp.red:lamp.off]]){const l=cylinder(head,x,0,.2,.16,.06,mat);l.rotation.x=Math.PI/2;}
+  };
+  signal(16.8,-3.8,16.8,1.2,[-1,0],'east','green');signal(1.2,11.8,1.2,6.8,[1,0],'west','green');
+  signal(16.8,11.8,11.8,11.8,[0,-1],'south','red');signal(1.2,-3.8,6.2,-3.8,[0,1],'north','red');
   // Recessed depot, loading docks face its own apron, not the public road.
   const depot=group(root,-25,.2,-21);surface(depot,46,35);shed(depot,0,-7,40,20);
   // Replace the thin green patch and its nearly coplanar ribs with a raised,

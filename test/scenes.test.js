@@ -110,3 +110,22 @@ test('neighborhood depot has no forklift',()=>{
   let forks=0;worlds[2].root.traverse(o=>{if(o.isMesh&&o.geometry?.parameters?.width===1.2&&o.geometry?.parameters?.depth===1.7)forks++;});
   assert.equal(forks,0);
 });
+test('junction curbs turn the corners with rounded curbs that meet both straight runs',()=>{
+  const curbs=worlds[2].root.getObjectByName('curbs'),corners=curbs.children.filter(o=>o.name==='curb-corner'),straights=curbs.children.filter(o=>o.name!=='curb-corner');
+  assert.equal(corners.length,4);
+  for(const corner of corners){const cb=bounds(corner).expandByScalar(.05);
+    const joined=straights.filter(o=>bounds(o).intersectsBox(cb));
+    assert.ok(joined.length>=2,'each rounded corner must join a horizontal and a vertical curb');
+    assert.ok(joined.some(o=>bounds(o).getSize(new T.Vector3()).x>1)&&joined.some(o=>bounds(o).getSize(new T.Vector3()).z>1));}
+});
+test('junction signals give the east-west road the green and the north-south road the red',()=>{
+  const heads=['east','west','south','north'].map(d=>worlds[2].root.getObjectByName(`signal-${d}`));
+  assert.ok(heads.every(Boolean),'four signal heads');
+  assert.ok(heads.slice(0,2).every(h=>h.userData.state==='green')&&heads.slice(2).every(h=>h.userData.state==='red'));
+  const at=h=>bounds(h).getCenter(new T.Vector3());
+  for(const h of heads)assert.ok(bounds(h).min.y>4.2,'heads clear tall vehicles');
+  assert.ok(at(heads[0]).z>-1.5&&at(heads[0]).z<4,'eastbound head over the north lane');
+  assert.ok(at(heads[1]).z>4&&at(heads[1]).z<9.5,'westbound head over the south lane');
+  assert.ok(at(heads[2]).x>9&&at(heads[2]).x<14.5,'southbound head over the east lane');
+  assert.ok(at(heads[3]).x>3.5&&at(heads[3]).x<9,'northbound head over the west lane');
+});
